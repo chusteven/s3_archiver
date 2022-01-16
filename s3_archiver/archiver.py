@@ -11,7 +11,7 @@ from kafka import KafkaConsumer
 # -----------------------------------------------------------------------------
 
 
-def get_cli_args():
+def get_cli_args() -> t.Any:
     parser = argparse.ArgumentParser(description="Process some integers.")
 
     parser.add_argument(
