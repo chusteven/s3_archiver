@@ -66,4 +66,4 @@ def upload_messages_to_s3(
     if not response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200:
         logging.error(f"Response was not OK: {response}")
         return
-    logging.info(f"Finished writing into S3")
+    logging.info(f"Finished writing into S3 into filepath dt={today_as_string}/{last_message_offset}.json")
