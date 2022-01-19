@@ -48,6 +48,9 @@ def create_bucket_if_not_exists(bucket_name: str) -> None:
 def upload_messages_to_s3(
     messages: t.List[t.Tuple[int, str]], bucket_name: str
 ) -> None:
+    """Input is expected to be a list of tuples where the first element of the tuple
+    will be used for namespacing the S3 objects. We write this as a newline-separated
+    series of JSON strings."""
     if not messages:
         logging.info(
             "Returning early from `upload_messages_to_s3` -- no messages to upload"

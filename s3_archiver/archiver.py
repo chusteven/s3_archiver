@@ -65,11 +65,14 @@ def get_cli_args() -> t.Any:
 
 
 def listen_and_maybe_upload(buffer: t.List[str], bucket_name: str) -> None:
+    """Polls in 1m intervals and checks whether (a) it's been 15 minutes since
+    the last flush to S3 or (b) if the buffer has gotten too big [25MB]. If
+    either condition is met, then flushes to S3."""
     while True:
         now = datetime.now()
         current_minute = now.minute
         with BUFFER_LOCK:
-            if current_minute % 5 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
+            if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
                 upload_messages_to_s3(buffer, bucket_name)
                 buffer.clear()
         time.sleep(SLEEP_TIME_IN_SECONDS)
