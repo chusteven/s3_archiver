@@ -3,6 +3,7 @@ import typing as t
 import json
 import logging
 import os
+import pytz
 
 from datetime import datetime
 
@@ -56,7 +57,7 @@ def upload_messages_to_s3(
             "Returning early from `upload_messages_to_s3` -- no messages to upload"
         )
     last_message_offset: int = messages[-1][0]
-    today_as_string = datetime.now().date().isoformat()  # TODO: Make this PST time
+    today_as_string = datetime.now(pytz.timezone('US/Pacific')).date().isoformat()  # TODO: Make this PST time
     logging.info(f"About to start writing {len(messages)} messages into S3")
     response = S3_CLIENT.put_object(
         Body="\n".join(json.dumps(x[1]) for x in messages),
