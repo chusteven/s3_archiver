@@ -64,20 +64,26 @@ def get_cli_args() -> t.Any:
 # -----------------------------------------------------------------------------
 
 
-def listen_and_maybe_upload(buffer: t.List[str]) -> None:
+def listen_and_maybe_upload(buffer: t.List[str], bucket_name: str) -> None:
     while True:
         now = datetime.now()
         current_minute = now.minute
         with BUFFER_LOCK:
             if current_minute % 5 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
-                upload_messages_to_s3(buffer)
+                upload_messages_to_s3(buffer, bucket_name)
                 buffer.clear()
         time.sleep(SLEEP_TIME_IN_SECONDS)
 
 
-def start_uploader_daemon(buffer: t.List[str]) -> threading.Thread:
+def start_uploader_daemon(buffer: t.List[str], bucket_name: str) -> threading.Thread:
     logging.info("Starting uploader daemon")
-    t = threading.Thread(target=listen_and_maybe_upload, args=(buffer,))
+    t = threading.Thread(
+        target=listen_and_maybe_upload,
+        args=(
+            buffer,
+            bucket_name,
+        ),
+    )
     t.start()
     return t  # though we don't actually do anything with it atm
 
@@ -102,7 +108,7 @@ def consume_messages(
     logging.info("Starting to consume from Kafkfa")
     for message in consumer:
         with BUFFER_LOCK:
-            buffer.append(message.value["data"])
+            buffer.append((message.offset, message.value["data"]))
 
 
 # -----------------------------------------------------------------------------
@@ -113,8 +119,9 @@ def consume_messages(
 def main() -> None:
     args = get_cli_args()
     message_buffer = []
-    create_bucket_if_not_exists(args.s3_bucket)
-    start_uploader_daemon(message_buffer)
+    s3_bucket_name = args.s3_bucket
+    create_bucket_if_not_exists(s3_bucket_name)
+    start_uploader_daemon(message_buffer, s3_bucket_name)
     consume_messages(args.topic, args.bootstrap_server, message_buffer)
 
 
