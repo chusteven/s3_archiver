@@ -54,6 +54,7 @@ def upload_messages_to_s3(
         )
     last_message_offset: int = messages[-1][0]
     today_as_string = datetime.now().date().isoformat()
+    logging.info(f"About to start writing {len(messages)} messages into S3")
     response = S3_CLIENT.put_object(
         Body="\n".join(json.dumps(x[1]) for x in messages),
         Bucket=bucket_name,
