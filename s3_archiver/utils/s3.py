@@ -36,22 +36,28 @@ def create_bucket_if_not_exists(bucket_name: str) -> None:
                 "LocationConstraint": DEFAULT_REGION,
             },
         )
-        if not response.get("ResponseMetadata", {}).get("HTTPStatusCode", None) == 200:
+        if not response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200:
             raise Exception(f"Response was not OK: {response}")
-    except S3_CLIENT.meta.client.exceptions.BucketAlreadyExists:
+    except (
+        S3_CLIENT.exceptions.BucketAlreadyExists,
+        S3_CLIENT.exceptions.BucketAlreadyOwnedByYou,
+    ):
         logging.info(f"Bucket {bucket_name} already exists")
 
 
 def upload_messages_to_s3(
-    messages: t.List[str], bucket_name: str
+    messages: t.List[t.Tuple[int, str]], bucket_name: str
 ) -> None:
     if not messages:
-        return
-    last_message_offset = messages[-1][0]
+        logging.info(
+            "Returning early from `upload_messages_to_s3` -- no messages to upload"
+        )
+    last_message_offset: int = messages[-1][0]
+    today_as_string = datetime.now().date().isoformat()
     response = S3_CLIENT.put_object(
         Body="\n".join(json.dumps(x[1]) for x in messages),
         Bucket=bucket_name,
-        Key=f"dt={datetime.now().date().isoformat()}/{last_message_offset}.json",
+        Key=f"dt={today_as_string}/{last_message_offset}.json",
     )
     if not response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200:
         logging.error(f"Response was not OK: {response}")
