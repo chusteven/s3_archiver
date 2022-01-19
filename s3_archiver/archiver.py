@@ -50,6 +50,13 @@ def get_cli_args() -> t.Any:
     )
 
     parser.add_argument(
+        "--consumer-group-name",
+        dest="consumer_group_name",
+        default=None,
+        help="The consumer group name -- must be unique so offsets can be tracked",
+    )
+
+    parser.add_argument(
         "--bootstrap-server",
         dest="bootstrap_server",
         default="localhost:9092",
@@ -99,7 +106,10 @@ def start_uploader_daemon(buffer: t.List[str], bucket_name: str) -> threading.Th
 
 
 def consume_messages(
-    kafka_topic: str, kafka_bootstrap_server: str, buffer: t.List[str]
+    kafka_topic: str,
+    kafka_bootstrap_server: str,
+    consumer_group_name: t.Optional[str],
+    buffer: t.List[str],
 ) -> None:
     consumer = KafkaConsumer(
         # Other params of interest:
@@ -109,11 +119,14 @@ def consume_messages(
         kafka_topic,
         bootstrap_servers=[kafka_bootstrap_server],
         value_deserializer=lambda x: json.loads(x.decode("utf-8")),
+        group_id=consumer_group_name,
     )
     logging.info("Starting to consume from Kafka")
     for message in consumer:
         with BUFFER_LOCK:
-            buffer.append((message.offset, message.value["data"]))
+            data = message.value.get("data")
+            if data:
+                buffer.append((message.offset, data))
 
 
 # -----------------------------------------------------------------------------
@@ -127,7 +140,9 @@ def main() -> None:
     s3_bucket_name = args.s3_bucket
     create_bucket_if_not_exists(s3_bucket_name)
     start_uploader_daemon(message_buffer, s3_bucket_name)
-    consume_messages(args.topic, args.bootstrap_server, message_buffer)
+    consume_messages(
+        args.topic, args.bootstrap_server, args.consumer_group_name, message_buffer
+    )
 
 
 if __name__ == "__main__":
