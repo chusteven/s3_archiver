@@ -75,6 +75,8 @@ def listen_and_maybe_upload(buffer: t.List[str], bucket_name: str) -> None:
             if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
                 upload_messages_to_s3(buffer, bucket_name)
                 buffer.clear()
+            else:
+                logging.info("No need to flush buffer, sleeping...")
         time.sleep(SLEEP_TIME_IN_SECONDS)
 
 
@@ -108,7 +110,7 @@ def consume_messages(
         bootstrap_servers=[kafka_bootstrap_server],
         value_deserializer=lambda x: json.loads(x.decode("utf-8")),
     )
-    logging.info("Starting to consume from Kafkfa")
+    logging.info("Starting to consume from Kafka")
     for message in consumer:
         with BUFFER_LOCK:
             buffer.append((message.offset, message.value["data"]))

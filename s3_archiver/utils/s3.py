@@ -56,7 +56,7 @@ def upload_messages_to_s3(
             "Returning early from `upload_messages_to_s3` -- no messages to upload"
         )
     last_message_offset: int = messages[-1][0]
-    today_as_string = datetime.now().date().isoformat()
+    today_as_string = datetime.now().date().isoformat()  # TODO: Make this PST time
     logging.info(f"About to start writing {len(messages)} messages into S3")
     response = S3_CLIENT.put_object(
         Body="\n".join(json.dumps(x[1]) for x in messages),
@@ -65,3 +65,5 @@ def upload_messages_to_s3(
     )
     if not response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200:
         logging.error(f"Response was not OK: {response}")
+        return
+    logging.info(f"Finished writing into S3")
