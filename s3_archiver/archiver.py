@@ -13,6 +13,7 @@ from kafka import KafkaConsumer
 
 from utils.s3 import create_bucket_if_not_exists
 from utils.s3 import upload_messages_to_s3
+from utils.twitter import create_twitter_payload
 
 
 # -----------------------------------------------------------------------------
@@ -124,9 +125,9 @@ def consume_messages(
     logging.info("Starting to consume from Kafka")
     for message in consumer:
         with BUFFER_LOCK:
-            data = message.value.get("data")
-            if data:
-                buffer.append((message.offset, data))
+            payload = create_twitter_payload(message)
+            if payload:
+                buffer.append((message.offset, payload))
 
 
 # -----------------------------------------------------------------------------
