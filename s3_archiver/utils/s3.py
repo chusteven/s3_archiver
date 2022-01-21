@@ -49,7 +49,7 @@ def create_bucket_if_not_exists(bucket_name: str) -> None:
 
 
 def upload_messages_to_s3(
-    messages: t.List[t.Tuple[int, str]], bucket_name: str
+    messages: t.List[t.Tuple[int, str]], bucket_name: str, subpath: str
 ) -> None:
     """Input is expected to be a list of tuples where the first element of the tuple
     will be used for namespacing the S3 objects. We write this as a newline-separated
@@ -64,7 +64,7 @@ def upload_messages_to_s3(
     response = S3_CLIENT.put_object(
         Body="\n".join(json.dumps(x[1]) for x in messages),
         Bucket=bucket_name,
-        Key=f"dt={today_as_string}/{last_message_offset}.json",
+        Key=f"{subpath}/dt={today_as_string}/{last_message_offset}.json",
     )
     if not response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200:
         logging.error(f"Response was not OK: {response}")

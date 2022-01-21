@@ -48,6 +48,13 @@ def get_cli_args() -> t.Any:
     )
 
     parser.add_argument(
+        "--s3-subpath",
+        dest="s3_subpath",
+        default=None,
+        help="The S3 subpath where we will write data",
+    )
+
+    parser.add_argument(
         "--consumer-group-name",
         dest="consumer_group_name",
         default=None,
@@ -70,7 +77,7 @@ def get_cli_args() -> t.Any:
 
 
 def maybe_upload_messages_to_s3(
-    buffer: t.List[t.Tuple[int, str]], bucket_name: str
+    buffer: t.List[t.Tuple[int, str]], bucket_name: str, s3_subpath: str
 ) -> None:
     current_minute = datetime.now().minute
     if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
@@ -81,6 +88,7 @@ def maybe_upload_messages_to_s3(
             args=(
                 buffer_copy,
                 bucket_name,
+                s3_subpath,
             ),
         )
         t.start()
@@ -98,6 +106,7 @@ def consume_messages(
     consumer_group_name: t.Optional[str],
     buffer: t.List[t.Tuple[int, str]],
     bucket_name: str,
+    s3_subpath: str,
 ) -> None:
     consumer = KafkaConsumer(
         # Other params of interest:
@@ -114,7 +123,7 @@ def consume_messages(
         data = message.value.get("data")
         if data:
             buffer.append((message.offset, data))
-            maybe_upload_messages_to_s3(buffer, bucket_name)
+            maybe_upload_messages_to_s3(buffer, bucket_name, s3_subpath)
 
 
 # -----------------------------------------------------------------------------
@@ -133,6 +142,7 @@ def main() -> None:
         consumer_group_name=args.consumer_group_name,
         buffer=[],
         bucket_name=s3_bucket_name,
+        s3_subpath=args.s3_subpath,
     )
 
 
