@@ -11,8 +11,8 @@ from datetime import datetime
 
 from kafka import KafkaConsumer
 
-from utils.s3 import create_bucket_if_not_exists
-from utils.s3 import upload_messages_to_s3
+from s3_archiver.utils.s3 import create_bucket_if_not_exists
+from s3_archiver.utils.s3 import upload_messages_to_s3
 
 
 # -----------------------------------------------------------------------------
