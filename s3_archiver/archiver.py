@@ -4,16 +4,15 @@ import argparse
 import json
 import logging
 import sys
-import time
 import threading
 
+from copy import copy
 from datetime import datetime
 
 from kafka import KafkaConsumer
 
 from utils.s3 import create_bucket_if_not_exists
 from utils.s3 import upload_messages_to_s3
-from utils.twitter import create_twitter_payload
 
 
 # -----------------------------------------------------------------------------
@@ -23,9 +22,7 @@ from utils.twitter import create_twitter_payload
 
 logging.basicConfig(level=logging.INFO)
 
-BUFFER_LOCK: threading.Lock = threading.Lock()
 BYTE_SIZE_TO_FLUSH: float = 2.5e7  # 25MB
-SLEEP_TIME_IN_SECONDS: int = 60
 
 
 # -----------------------------------------------------------------------------
@@ -72,33 +69,22 @@ def get_cli_args() -> t.Any:
 # -----------------------------------------------------------------------------
 
 
-def listen_and_maybe_upload(buffer: t.List[str], bucket_name: str) -> None:
-    """Polls in 1m intervals and checks whether (a) it's been 15 minutes since
-    the last flush to S3 or (b) if the buffer has gotten too big [25MB]. If
-    either condition is met, then flushes to S3."""
-    while True:
-        now = datetime.now()
-        current_minute = now.minute
-        with BUFFER_LOCK:
-            if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
-                upload_messages_to_s3(buffer, bucket_name)
-                buffer.clear()
-            else:
-                logging.info("No need to flush buffer, sleeping...")
-        time.sleep(SLEEP_TIME_IN_SECONDS)
-
-
-def start_uploader_daemon(buffer: t.List[str], bucket_name: str) -> threading.Thread:
-    logging.info("Starting uploader daemon")
-    t = threading.Thread(
-        target=listen_and_maybe_upload,
-        args=(
-            buffer,
-            bucket_name,
-        ),
-    )
-    t.start()
-    return t  # though we don't actually do anything with it atm
+def maybe_upload_messages_to_s3(
+    buffer: t.List[t.Tuple[int, str]], bucket_name: str
+) -> None:
+    current_minute = datetime.now().minute
+    if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
+        logging.info("Time to flush buffer!")
+        buffer_copy = copy(buffer)
+        t = threading.Thread(
+            target=upload_messages_to_s3,
+            args=(
+                buffer_copy,
+                bucket_name,
+            ),
+        )
+        t.start()
+        buffer.clear()
 
 
 # -----------------------------------------------------------------------------
@@ -110,7 +96,8 @@ def consume_messages(
     kafka_topic: str,
     kafka_bootstrap_server: str,
     consumer_group_name: t.Optional[str],
-    buffer: t.List[str],
+    buffer: t.List[t.Tuple[int, str]],
+    bucket_name: str,
 ) -> None:
     consumer = KafkaConsumer(
         # Other params of interest:
@@ -124,10 +111,10 @@ def consume_messages(
     )
     logging.info("Starting to consume from Kafka")
     for message in consumer:
-        with BUFFER_LOCK:
-            payload = create_twitter_payload(message)
-            if payload:
-                buffer.append((message.offset, payload))
+        data = message.value.get("data")
+        if data:
+            buffer.append((message.offset, data))
+            maybe_upload_messages_to_s3(buffer, bucket_name)
 
 
 # -----------------------------------------------------------------------------
@@ -137,12 +124,15 @@ def consume_messages(
 
 def main() -> None:
     args = get_cli_args()
-    message_buffer = []
     s3_bucket_name = args.s3_bucket
     create_bucket_if_not_exists(s3_bucket_name)
-    start_uploader_daemon(message_buffer, s3_bucket_name)
+
     consume_messages(
-        args.topic, args.bootstrap_server, args.consumer_group_name, message_buffer
+        kafka_topic=args.topic,
+        kafka_bootstrap_server=args.bootstrap_server,
+        consumer_group_name=args.consumer_group_name,
+        buffer=[],
+        bucket_name=s3_bucket_name,
     )
 
 
