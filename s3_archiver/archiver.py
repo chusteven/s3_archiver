@@ -120,7 +120,7 @@ def consume_messages(
     )
     logging.info("Starting to consume from Kafka")
     for message in consumer:
-        data = message.value.get("data")
+        data = message.value
         if data:
             buffer.append((message.offset, data))
             maybe_upload_messages_to_s3(buffer, bucket_name, s3_subpath)
