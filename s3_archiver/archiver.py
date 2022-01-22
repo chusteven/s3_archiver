@@ -182,7 +182,7 @@ def main() -> None:
             consumer_group_name=args.consumer_group_name,
             buffer=message_buffer,
         )
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         logging.error(
             f"Ran into some exception {str(e)} with traceback {traceback.format_exc()} "
             "during consumption; stopping uploader daemon"
