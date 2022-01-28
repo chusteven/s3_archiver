@@ -58,6 +58,7 @@ def upload_messages_to_s3(
         logging.info(
             "Returning early from `upload_messages_to_s3` -- no messages to upload"
         )
+        return
     last_message_offset: int = messages[-1][0]
     today_as_string = datetime.now(PST).date().isoformat()
     logging.info(f"About to start writing {len(messages)} messages into S3")
