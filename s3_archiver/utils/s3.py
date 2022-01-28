@@ -1,6 +1,7 @@
 import typing as t
 
 import gzip
+import json
 import logging
 import os
 import pytz
@@ -78,7 +79,7 @@ def upload_messages_to_s3(
     ) as tf:
         gzf = gzip.GzipFile(mode="wb", fileobj=tf)
         for _, record in messages:
-            gzf.write(record.encode("utf-8"))
+            gzf.write(json.dumps(record).encode("utf-8"))
         gzf.close()
         tf.seek(0)  # Hmm... still very confused why I need to do this!
         try:
