@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 
+from copy import copy
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -98,12 +99,13 @@ def listen_and_maybe_upload(
         if uploading_killswitch.should_kill:
             break
         current_minute = datetime.now().minute
-        with BUFFER_LOCK:
-            if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
-                upload_messages_to_s3(buffer, bucket_name, s3_subpath)
+        if current_minute % 15 == 0 or sys.getsizeof(buffer) >= BYTE_SIZE_TO_FLUSH:
+            with BUFFER_LOCK:
+                buffer_copy = copy(buffer)
                 buffer.clear()
-            else:
-                logging.info("No need to flush buffer, sleeping...")
+            upload_messages_to_s3(buffer_copy, bucket_name, s3_subpath)
+        else:
+            logging.info("No need to flush buffer, sleeping...")
         time.sleep(SLEEP_TIME_IN_SECONDS)
 
 
